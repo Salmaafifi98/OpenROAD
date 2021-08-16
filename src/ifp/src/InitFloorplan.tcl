@@ -269,35 +269,12 @@ proc microns_to_mfg_grid { microns } {
   }  
 }
 
-proc make_site_loc {x site_x {dirc 1} {offset 0}} {
-  set site_int [expr double($x - $offset) / $site_x]
-  if {$dirc == 1} {
-    set site_int [expr ceil( $site_int )]
-  } else {
-    set site_int [expr floor( $site_int )]
-  }
-  return [expr int($site_int * $site_x + $offset)]
-}
-
-proc build_row {block name site start_x end_x y orient direction min_row_width} {
-  set site_width [$site getWidth]
-
-  set new_row_num_sites [expr ($end_x - $start_x)/$site_width]
-  set new_row_width [expr $new_row_num_sites*$site_width]
-
-  if {$new_row_num_sites > 0 && $new_row_width >= $min_row_width} {
-    odb::dbRow_create $block $name $site $start_x $y $orient $direction $new_row_num_sites $site_width
-  }
-}
-
 proc cut_row {block row row_blockages min_row_width halo_x halo_y} {
   set row_name [$row getName]
   set row_bb [$row getBBox]
 
   set row_site [$row getSite]
   set site_width [$row_site getWidth]
-  set orient [$row getOrient]
-  set direction [$row getDirection]
 
   set start_origin_x [$row_bb xMin]
   set start_origin_y [$row_bb yMin]
@@ -315,15 +292,15 @@ proc cut_row {block row row_blockages min_row_width halo_x halo_y} {
   foreach blockage $row_blockage_xs {
     lassign $blockage blockage_x0 blockage_x1
     # ensure rows are an integer length of sitewidth
-    set new_row_end_x [make_site_loc [expr $blockage_x0 - $halo_x] $site_width -1 $start_origin_x]
-    build_row $block "${row_name}_$row_sub_idx" $row_site $start_origin_x $new_row_end_x $start_origin_y $orient $direction $curr_min_row_width
+    set new_row_end_x [tap::make_site_loc [expr $blockage_x0 - $halo_x] $site_width -1 $start_origin_x]
+    tap::build_row $block "${row_name}_$row_sub_idx" $row_site $start_origin_x $new_row_end_x $start_origin_y $row $curr_min_row_width
     incr row_sub_idx
 
-    set start_origin_x [make_site_loc [expr $blockage_x1 + $halo_x] $site_width 1 $start_origin_x]
+    set start_origin_x [tap::make_site_loc [expr $blockage_x1 + $halo_x] $site_width 1 $start_origin_x]
   }
 
   # Make last row
-  build_row $block "${row_name}_$row_sub_idx" $row_site $start_origin_x [$row_bb xMax] $start_origin_y $orient $direction $curr_min_row_width
+  tap::build_row $block "${row_name}_$row_sub_idx" $row_site $start_origin_x [$row_bb xMax] $start_origin_y $row $curr_min_row_width
 
   # Remove current row
   odb::dbRow_destroy $row
